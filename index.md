@@ -34,4 +34,4 @@ Your Pages site will use the layout and styles from the Jekyll theme you have se
 
 ### Support or Contact
 
-Having trouble with Pages? Check out our [interesting page,put](https://github.com/Cherchn/Cherchn.github.io/blob/master/An%20interesting%20page.html) or [this is an image](https://github.com/Cherchn/Cherchn.github.io/blob/Cherchn-patch-1/west_01_3ca39fe.png) and we’ll help you sort it out.
+Having trouble with Pages? Check out our [interesting page,put](https://github.com/Cherchn/Cherchn.github.io/blob/master/An%20interesting%20page.html) or [this is an image](https://raw.githubusercontent.com/Cherchn/Cherchn.github.io/Cherchn-patch-1/west_01_3ca39fe.png) and we’ll help you sort it out.

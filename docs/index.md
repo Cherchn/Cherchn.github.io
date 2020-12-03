@@ -23,7 +23,7 @@ Syntax highlighted code block
 
 **Bold** and _Italic_ and `Code` text
 
-[Link](url) and ![Image](src)
+[Link](https://github.com/Cherchn/Cherchn.github.io/blob/master/An%20interesting%20page.html) and ![Image](https://github.com/Cherchn/Cherchn.github.io/blob/Cherchn-patch-1/west_01_3ca39fe.png)
 ```
 
 For more details see [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
@@ -34,4 +34,4 @@ Your Pages site will use the layout and styles from the Jekyll theme you have se
 
 ### Support or Contact
 
-Having trouble with Pages? Check out our [change](https://docs.github.com/categories/github-pages-basics/) or [contact support](https://github.com/contact) and we’ll help you sort it out.
+Having trouble with Pages? Check out our [interesting page,put](https://github.com/Cherchn/Cherchn.github.io/blob/master/An%20interesting%20page.html) or [this is an image](https://raw.githubusercontent.com/Cherchn/Cherchn.github.io/Cherchn-patch-1/west_01_3ca39fe.png) and we’ll help you sort it out.

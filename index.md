@@ -23,7 +23,7 @@ Syntax highlighted code block
 
 **Bold** and _Italic_ and `Code` text
 
-[Link](url) and ![Image](https://github.com/Cherchn/Cherchn.github.io/blob/Cherchn-patch-1/west_01_3ca39fe.png)
+[Link](https://github.com/Cherchn/Cherchn.github.io/blob/master/An%20interesting%20page.html) and ![Image](https://github.com/Cherchn/Cherchn.github.io/blob/Cherchn-patch-1/west_01_3ca39fe.png)
 ```
 
 For more details see [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).

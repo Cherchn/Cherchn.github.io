@@ -1,0 +1,75 @@
+---
+title: "moisture_extraction"
+author: "fx"
+date: "2020年12月7日"
+output: html_document
+---
+## 功能实现 
+- 将含有8层（4层moisture和 4层temperature）的netcdf，转换为数据框格式，并存储。
+- 将数据从小时尺度，平均后转换为 日尺度。
+- 得到2005-2010 5年*8层=40个表文件
+-
+![过程图示](E:/test/Netcdf/Netcdf process/process_figure.png)
+
+
+```{r eval=FALSE}
+library(ncdf4)
+setwd("E:/test/Netcdf/data/Gldas20051.1-2010.12.31data")
+year <- c("2006","2007","2008","2009","2010")
+variables <- c("SoilTMP0_10cm_inst","SoilTMP10_40cm_inst","SoilTMP40_100cm_inst","  SoilTMP100_200cm_inst" )
+
+ptm <- proc.time() #start the timer
+extract_moisture <- function(mositure_df,filelist) # 从第二个开始
+    {
+       for (i in 2:length(filelist)) {
+              filename<-filelist[i]
+              ncfile <- nc_open(filename)
+              moisture <- ncvar_get(ncfile,eachvariable)
+              nc_close(ncfile)
+              moisture[moisture==fillvalue$value]<-NA
+              moisture_vector <- as.vector(moisture)#提为matrix就好
+              moisture_df$colname <- moisture_vector
+              colname <- substr(filename,19,35)
+              names(moisture_df)[names(moisture_df)=="colname"] = colname
+              }
+          write.csv(moisture_df,file = paste0(eachvariable,"_hour.csv"))
+    }
+
+for (eachvariable in variables) {
+    for (eachyear in year) {
+       filelist<-list.files(path ="E:/test/Netcdf/data/Gldas20051.1-2010.12.31data",
+                            pattern = paste0("A",eachyear ))# 获取文件夹下同一年份的文件名列表
+      filename <- filelist[1]  # 获得第一个文件 的文件名
+      ncfile <- nc_open(filename)  # 打开该文件
+      lon <- ncvar_get(ncfile,"lon")  # 获取经纬度
+      lat <- ncvar_get(ncfile,"lat")
+      moisture <- ncvar_get(ncfile,eachvariable) # 获取所需变量
+      fillvalue <- ncatt_get(ncfile,eachvariable,"_FillValue") # 获取缺失值
+      moisture[moisture==fillvalue$value]<-NA   # 替换为NA
+      moisture_vector <- as.vector(moisture)    # 将变量值slice 转为向量 
+      lonlat <- as.matrix(expand.grid(lon,lat))  # 将lon，lat 转为矩阵格式
+      moisture_df<-data.frame(cbind(lonlat,moisture_vector)) # 将矩阵和向量合并
+      colname<-substr(filename,19,35) # 新列名称（从文件名中截取 日期、时（小时））
+      names(moisture_df) <- c("lon","lat",colname) # 命名
+      
+      extract_moisture(mositure_df,filelist)
+      moisture_2006<-read.csv(paste0(eachvariable,"_hour.csv")) # 小时尺度的数据框文件
+      #file.rename("10cmhour.csv",paste0(eachyear,"_hour_10cm_mositure.csv"))
+      # 每8列求一次平均值，复制进天 尺度的 新表
+      daymeanvalue <- apply(moisture_2006[4:4+7],1,mean) # 第一天的 平均值向量
+      daymean_df <- data.frame(cbind(lonlat,daymeanvalue)) # 与经纬度构成新表
+      names(daymean_df) <- c("lon","lat",substr(names(moisture_2006)[4],2,9))# 重命名新列 
+      leng <- dim(moisture_2006)[2] # 获取小时尺度的列数
+      for(i in seq(12,leng,by=8)) # 从第二个开始循环
+          {
+            daymeanvalue <- apply(moisture_2006[i:i+7],1,mean)
+            daymean_df$newday <- daymeanvalue
+            names(daymean_df)[names(daymean_df)=="newday"]=substr(names(moisture_2006)[i],2,9)
+          }
+      write.csv(daymean_df,file=paste0(eachvariable,"_day.csv")) # 保存新表（天尺度）
+      
+}
+}
+test<-read.csv(paste0(eachvariable,"_day.csv"))
+proc.time()-ptm
+```

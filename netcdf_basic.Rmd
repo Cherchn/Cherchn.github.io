@@ -1,0 +1,196 @@
+---
+title: "general_netcdf_process"
+author: "fx"
+date: "2020年12月8日"
+output: html_document
+---
+
+# 1 get the basic infromation
+
+- variables and attributes
+```{r}
+library(ncdf4)
+filelist <- list.files(path="",pattern="A2006") 
+ncfilename <- filelist[1]
+
+# open ncfile
+ncfile <- nc_open(ncfilename)   
+
+print(ncfile) # detail information of the file
+# get variable
+lon <- ncvar_get(ncfile,"lon")
+lat <- ncvar_get(ncfile,"lat")
+tmp <- ncvar_get(ncfile,"tmp")
+
+# get attributes
+tlongname <- ncatt_get(ncfile,"tmp","long_name")
+tmp_units <- ncatt_get(ncfile,"tmp","units")
+tmp_fillvalue <- ncatt_get(ncfile,"tmp","_FillValue")
+timeunit <- ncatt_get (ncfile,"time","units") # name and attributes, the time since
+title <- ncatt_get(ncfile,0,"title") ## get whole attributes
+```
+
+# 2 reshape 
+
+## convert time variable
+-if there is no information about the current time ,conversion of time variable is needed, ** timeunit$value(time-since)-->real time**
+
+```{r}
+library(lattice)
+library(RColorBrewer)
+library(chron)
+
+tstr <- strsplit(timeunit$value,"")
+tdstr <- strsplit(unlist(tstr)[3],"-")
+tday <- as.integer(unlist(tdstr))
+chron()
+```
+
+## NA exchange
+```{r}
+tmp[tmp==tmp_fillvalue$value] <- NA
+```
+
+## single slice transform
+```{r}
+# the tmp obtained before is a muti-dimention ,muti layers
+tmp_slice <- tmp[,,1]
+
+# quick map
+image(lon,lat,tmp_slice,col = rev(brewer.pal(10,"RdBu")))
+
+# better map
+tmp_grid <- expand.grid(lon=lon,lat=lat)
+cutpts <- seq(from=-50,to=50,by=10)
+levelplot(tmp_slice~lon*lat,data = tmp_grid,at=cutpts,cuts=11,pretty=TRUE,col.region=rev(brewer.pal(10,"RdBu")))
+
+# transform into a dataframe and save as a CSV file
+lonlat <- as.matrix(expand.grid(lon,lat)) # grid --> matrix
+tem_vector <- as.vector(tmp_slice)  # slice(grid)--->vector
+tmp_df <- data.frame(cbind(lonlat,tmp_vector))
+names(tmp_df) <- c("lon","lat","tmpday1")
+write.table(tmp_df,"tmp_df.csv",row.names = FALSE) # 以往存储的时候没有后面的rownames=False参数，导致多了一列，以后要注意哦
+
+```
+## whole array transform(include time dimention)
+```{r}
+tmp_vec_long <- as.vector(tmp) # many grids -->a long vector
+tmp_matrix <- matrix(tmp_vec_long,nrow =nlon*nlat,ncol=nt) # vector---> matrix(nlon*nlat * nt(time) )
+tmp_df_wider <- data.frame(cbind(lonlat,tmp_matrix))
+names(tmp_df_wider) <- c("lon","lat","t1",paste0("t",seq(from=1,to=12,by=1)))
+# calculation based on df file
+tmp_df_wider$annualmean <- apply(tmp_df_wider[3:14],1,mean) # Note the right number3+12-1
+```
+# 3 dataframe into array
+
+## a full dataframe into array
+```{r}
+# get lon,lat,time, nlon,nlat,ntime
+# rechange
+tmp_matrix2 <- as.matrix(tmp_df_wider[3:3+12-1])  # df--->matrix
+tmp_arry2 <- array(tmp_matrix2,dim=c(nlon,nlat,nt))
+mean_arry2 <- array(tmp_df_wider$annualmean,dim=c(nlon,nlat)) # 单独的一列统计值，如何处理？
+# check
+levelplot(tmp_arry2[,,1]~lon*lat,data=grid,at=cutpts,cut=11,pretty=T,col.regions=rev(brewer.pal(10,"RdBu")),title="January") # data= Grid??
+```
+## a short dataframe into array
+
+- loop
+```{r}
+fillvalue <- 1e32
+tmp_arry3 <- array(fillvalue,dim = c(nlon,nlat,nt))
+mean_arry3 <- array(fillvalue,dim = c(nlon,nlat))
+# copy 
+tmp_df_wider3 <- na.omit(tmp_df_wider)
+nobs <- dim(tmp_df_wider3)[1] #12
+for (i in 1:nobs) {
+  j <- which.min(abs(lon-tmp_df_wider3$lon[i]))
+  k <- which.min(abs(lat-tmp_df_wider3$lat[i]))
+  
+  tmp_arry3[j,k,1:nt] <- as.matrix(tmp_df_wider3[i,3:(nt+2)])
+  mean_arry3[j,k] <- as.matrix(tmp_df_wider3$annualmean[i])
+}
+```
+
+- loop(simple example)
+```{r}
+lon <- c(1,2,3,4,5)
+lat <- c(3,4,5,6,7)
+df <- as.data.frame( expand.grid(lon=lon,lat=lat))
+df$sample <- sample(25)
+df$sample2 <- sample(25)
+df_array <- array(fillvalue,dim = c(5,5,2)) 
+nobs <- dim(df)[1] # 行数25
+
+
+for (i in 1:nobs) { #一列一列地遍历
+  j <- which.min(  abs(lon-df$lon[i]))  # array的位置，j纵坐标，K横坐标
+  k <- which.min(  abs(lat-df$lat[i]))
+  df_array[j,k,1:2] <- as.matrix(df[i,3:4])  # 按列存放的性质
+  
+}
+dim(df_array )
+```
+- semi-loop
+```{r}
+j2 <- sapply(df$lon, function(x) which.min(abs(lon-x))) # 所在的lon开始位置
+k2 <- sapply(df$lat, function(x) which.min(abs(lat-x)))
+j2
+k2
+df_array1 <- array(fillvalue,dim = c(5,5))
+for (i in 1:2) {
+  df_array1[cbind(j2,k2)] <- as.matrix(df[,2+i])
+  df_array[,,i] <-df_array1
+}
+df_array
+
+```
+-no-loop
+```{r}
+nt<-2
+l <- rep(1:nt,each=nobs)
+df_array[cbind(j2,k2,l)]<-as.matrix(df[,(3:3+nt-1)]) # 厉害  
+df_array
+m <- 1
+levelplot()
+levelplot(df_array[,,m]~lon*lat,cuts = 11,at=cutpts,col.regions=rev(brewer.pal(10,"RdBu")))
+library(RColorBrewer)
+library(lattice)
+```
+# 4 creat netcdf file
+```{r}
+# 创建文件名：
+ncname <- "new.nc"
+dname <- "tmp"
+nt<-2
+# 定义内容
+londim <- ncdim_def("lon","degree_east",as.double(lon))
+
+latdim <- ncdim_def("lat","degree_north",as.double(lat))
+
+timedim <- ncdim_def("time","times",as.double(nt))
+
+fillvalue <- 1e32
+
+tmp_def <- ncvar_def("tmp","C",list(londim,latdim,timedim),fillvalue,prec = "single")
+ncout <- nc_create(ncname,list(tmp_def),force_v4 = TRUE)
+ncvar_put(ncout,tmp_def,df_array)
+ncatt_put(ncout,"lon","axis","X")
+ncatt_put(ncout,"lat","axis","Y",)
+ncatt_put(ncout,"time","axis",'T')
+nc_close(ncout)
+
+```
+
+# 5 reading and writting  projected file
+```{r}
+# get coordinate variable 
+x <- ncvar_get(ncfile,"x")
+y <- ncvar_get(ncfile,"y")
+# get projection
+grid_mapping_name <- ncatt_get(ncfile,"Lambert_Conforma1","grid_mapping_name")
+standard_parallel <- ncatt_get(ncfile,"Lambert_Conforma1","standard_parallel")
+```
+
+
+
